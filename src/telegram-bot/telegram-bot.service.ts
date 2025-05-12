@@ -1,6 +1,7 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { Telegraf } from 'telegraf';
 import fetch from 'node-fetch';
+import { log } from 'console';
 
 @Injectable()
 export class TelegramBotService implements OnModuleInit {
@@ -22,14 +23,30 @@ export class TelegramBotService implements OnModuleInit {
         const response = await fetch('http://localhost:3000/api/verify-code', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ code }),
+          body: JSON.stringify({ code, telegramId: ctx.from.id })
         });
         const data = await response.json();
         
-        if (data.success) {
+        if (data.valid) {
           ctx.reply('Success');
         } else {
-          ctx.reply('Incorrect code');
+          switch (data.reason) {
+            case 'not_found':
+              ctx.reply('Code not found');
+              break;
+            case 'expired':
+              ctx.reply('Code expired');
+              break;
+            case 'already_used':
+              ctx.reply('Code already used');
+              break;
+            case 'usage_limit_reached':
+              ctx.reply('Code usage limit reached');
+              break;
+            default:
+              ctx.reply('Incorrect code');
+              break;
+          }
         }
       } catch (error) {
         ctx.reply('Error');
