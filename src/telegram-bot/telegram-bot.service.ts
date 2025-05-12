@@ -43,6 +43,9 @@ export class TelegramBotService implements OnModuleInit {
             case 'usage_limit_reached':
               ctx.reply('Code usage limit reached');
               break;
+            case 'user_already_verified':
+              ctx.reply('You are already verified');
+              break;
             default:
               ctx.reply('Incorrect code');
               break;
