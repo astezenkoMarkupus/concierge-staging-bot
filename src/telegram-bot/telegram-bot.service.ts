@@ -2,6 +2,18 @@ import { Injectable, OnModuleInit } from '@nestjs/common';
 import { Telegraf, Context } from 'telegraf';
 import fetch from 'node-fetch';
 
+type UserStatusResponse = {
+  status: string,
+  reason?: string
+};
+
+type VerifyCodeResponse = {
+  valid: boolean,
+  token?: string,
+  user?: {id: number, telegramId: string|null, role: string},
+  reason?: string
+};
+
 @Injectable()
 export class TelegramBotService implements OnModuleInit {
   private bot: Telegraf;
@@ -10,98 +22,72 @@ export class TelegramBotService implements OnModuleInit {
     this.bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN || '');
   }
 
-  onModuleInit() {
+  async onModuleInit() {
     // Basic /start command
     this.bot.start(async (ctx) => {
       // Get user's telegramId
       const telegramId = ctx.from?.id;
 
       if (!telegramId) {
-        ctx.reply('Cannot determine your Telegram ID.');
+        await ctx.reply('Cannot determine your Telegram ID.');
         return;
       }
 
       try {
         // Check user status via API
         const
-          statusRes = await fetch(`${process.env.APP_URL}/api/user-status?telegramId=${telegramId}`),
-          res       = await statusRes.json();
+          statusRes = await fetch( `${ process.env.APP_URL }/api/user-status?telegramId=${ telegramId }` ),
+          res       = ( await statusRes.json() ) as UserStatusResponse;
 
         switch (res.status) {
           case 'registered':
-            ctx.reply('You are already registered! Log in to the app via Telegram:', {
-              reply_markup: {
-                inline_keyboard: [[
-                  { text: 'Log in to Concierge App', web_app: { url: `${process.env.APP_URL}/login-via-telegram` } }
-                ]]
-              }
-            });
+            await sendButtonMarkup(ctx, 'You are already registered!');
             break;
 
           case 'registration_in_progress':
-            ctx.reply('Please complete your registration:', {
-              reply_markup: {
-                inline_keyboard: [[
-                  // Link to the login page via Telegram WebApp
-                  { text: 'Finish registration', web_app: { url: `${process.env.APP_URL}/login-via-telegram` } }
-                ]]
-              }
-            });
+            await sendButtonMarkup(ctx, 'Continue registration:');
             break;
 
           case 'error':
             console.error(`Error while checking registration status: ${res.reason}`);
-            ctx.reply('Error while checking registration status.');
+            await ctx.reply('Error while checking registration status.');
             break;
 
           default:
-            ctx.reply('Welcome to the Telegram Talent Concierge bot! Please enter your 4-digit code.');
+            await ctx.reply('Welcome to the Telegram Talent Concierge bot! Please enter your 4-digit code.');
             break;
         }
       } catch (e) {
         console.error(e);
-        ctx.reply('Error while checking registration status.');
+        await ctx.reply('Error while checking registration status.');
       }
     });
 
-    // Check user status and send the appropriate button
-    async function sendAppButton(ctx: Context, user: { role: string }, token: string) {
+    // Check the user status and send the appropriate button
+    async function sendAppButton(ctx: Context): Promise<void> {
       try {
         // Safely get telegramId
         const telegramId = ctx.from?.id;
 
         if (!telegramId) {
-          ctx.reply('Cannot determine your Telegram ID.');
+          await ctx.reply('Cannot determine your Telegram ID.');
           return;
         }
 
         // Request user status by telegramId
         const
           statusRes = await fetch(`${process.env.APP_URL}/api/user-status?telegramId=${telegramId}`),
-          res       = await statusRes.json();
+          res       = (await statusRes.json()) as UserStatusResponse;
 
-        // If user is registered, show button to dashboard
+        // Check if a user is registered
         if (res.status === 'registered') {
-          ctx.reply('You are already registered!', {
-            reply_markup: {
-              inline_keyboard: [[
-                { text: 'Open Concierge App', web_app: { url: `${process.env.APP_URL}/dashboard?telegramId=${telegramId}` } }
-              ]]
-            }
-          });
+          await sendButtonMarkup(ctx, 'You are already registered!');
         } else {
-          const registrationUrl = `${process.env.APP_URL}/register/${user.role}?token=${token}`;
-
-          ctx.reply('Continue registration:', {
-            reply_markup: {
-              inline_keyboard: [[
-                { text: 'Open Concierge App', web_app: { url: registrationUrl } }
-              ]]
-            }
-          });
+          await sendButtonMarkup(ctx, 'Continue registration:');
         }
       } catch (e) {
-        ctx.reply('Error checking registration status.');
+        console.error('Send App Button error. ', e);
+        await ctx.reply('Error checking registration status.');
       }
     }
 
@@ -115,43 +101,61 @@ export class TelegramBotService implements OnModuleInit {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ code, telegramId: ctx.from.id })
         });
-        const data = await response.json();
+        const data = (await response.json()) as VerifyCodeResponse;
         
-        // If code is valid, check user status and show the appropriate button
+        // If the code is valid, check the user status and show the appropriate button
         if (data.valid) {
-          await sendAppButton(ctx, data.user, data.token);
+          if (data.user && data.token) {
+            await sendAppButton(ctx);
+          } else {
+            await ctx.reply('User is invalid');
+          }
         } else {
           switch (data.reason) {
             case 'not_found':
-              ctx.reply('Code not found');
+              await ctx.reply('Code not found');
               break;
             case 'expired':
-              ctx.reply('Code expired');
+              await ctx.reply('Code expired');
               break;
             case 'already_used':
-              ctx.reply('Code already used');
+              await ctx.reply('Code already used');
               break;
             case 'usage_limit_reached':
-              ctx.reply('Code usage limit reached');
+              await ctx.reply('Code usage limit reached');
               break;
             case 'user_already_verified':
-              ctx.reply('You are already verified');
+              await ctx.reply('You are already verified');
               break;
             default:
-              ctx.reply('Incorrect code');
+              await ctx.reply('Incorrect code');
               break;
           }
         }
       } catch (error) {
-        ctx.reply('Error');
+        console.error('4-digit code check error. ', error);
+        await ctx.reply('Error');
       }
     });
 
     // Fallback for other text
-    this.bot.on('message', (ctx) => {
-      ctx.reply('Please enter a 4-digit code.');
+    this.bot.on('message', async ctx => {
+      await ctx.reply('Please enter a 4-digit code.');
     });
 
-    this.bot.launch();
+    await this.bot.launch();
   }
 }
+
+const sendButtonMarkup = async (ctx: Context, text: string) => {
+  await ctx.reply(text, {
+    reply_markup: {
+      inline_keyboard: [[
+        {
+          text: 'Open Concierge App',
+          web_app: { url: `${process.env.APP_URL}/login-via-telegram` }
+        }
+      ]]
+    }
+  });
+};
