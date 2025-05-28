@@ -41,7 +41,7 @@ export class TelegramBotService implements OnModuleInit {
 
         switch (res.status) {
           case 'registered':
-            await sendButtonMarkup(ctx, 'You are already registered!');
+            await sendButtonMarkup(ctx, 'Open your Dashboard:');
             break;
 
           case 'registration_in_progress':
