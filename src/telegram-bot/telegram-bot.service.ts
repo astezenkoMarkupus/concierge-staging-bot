@@ -9,7 +9,6 @@ type UserStatusResponse = {
 
 type VerifyCodeResponse = {
   valid: boolean,
-  token?: string,
   user?: {id: number, telegramId: string|null, role: string},
   reason?: string
 };
@@ -105,7 +104,7 @@ export class TelegramBotService implements OnModuleInit {
         
         // If the code is valid, check the user status and show the appropriate button
         if (data.valid) {
-          if (data.user && data.token) {
+          if (data.user) {
             await sendAppButton(ctx);
           } else {
             await ctx.reply('User is invalid');
