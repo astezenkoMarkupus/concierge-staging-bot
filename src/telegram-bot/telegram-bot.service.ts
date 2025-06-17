@@ -98,7 +98,7 @@ export class TelegramBotService implements OnModuleInit {
         const response = await fetch(`${process.env.APP_URL}/api/verify-code`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ code, telegramId: ctx.from.id })
+          body: JSON.stringify({ code, telegramId: ctx.from.id, username: ctx.from.username })
         });
         const data = (await response.json()) as VerifyCodeResponse;
         
