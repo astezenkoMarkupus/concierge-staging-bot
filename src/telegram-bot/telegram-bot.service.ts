@@ -53,7 +53,7 @@ export class TelegramBotService implements OnModuleInit {
             break;
 
           default:
-            await ctx.reply('Welcome to the Telegram Talent Concierge bot! Please enter your 4-digit code.');
+            await ctx.reply('Welcome to the Telegram Talent Concierge bot! Please enter your code (8 symbols).');
             break;
         }
       } catch (e) {
@@ -90,8 +90,8 @@ export class TelegramBotService implements OnModuleInit {
       }
     }
 
-    // For 4-digit codes
-    this.bot.hears(/^\d{4}$/, async (ctx) => {
+    // For 8-character codes (uppercase letters and digits)
+    this.bot.hears(/^[A-Z0-9]{8}$/, async (ctx) => {
       const code = ctx.message.text.trim();
 
       try {
@@ -127,19 +127,19 @@ export class TelegramBotService implements OnModuleInit {
               await ctx.reply('You are already verified');
               break;
             default:
-              await ctx.reply('Incorrect code');
+              await ctx.reply('Incorrect code or too many attempts. Please try again later.');
               break;
           }
         }
       } catch (error) {
-        console.error('4-digit code check error. ', error);
+        console.error('Code check error. ', error);
         await ctx.reply('Error');
       }
     });
 
     // Fallback for other text
     this.bot.on('message', async ctx => {
-      await ctx.reply('Please enter a 4-digit code.');
+      await ctx.reply('Please enter a code (8 symbols, uppercase letters and digits are allowed).');
     });
 
     await this.bot.launch();
