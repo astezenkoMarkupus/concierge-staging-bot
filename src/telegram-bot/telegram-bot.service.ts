@@ -120,14 +120,14 @@ export class TelegramBotService implements OnModuleInit {
             case 'already_used':
               await ctx.reply('Code already used');
               break;
-            case 'usage_limit_reached':
-              await ctx.reply('Code usage limit reached');
+            case 'rate_limit_exceeded':
+              await ctx.reply('Too many attempts. Please try again later.');
               break;
             case 'user_already_verified':
               await ctx.reply('You are already verified');
               break;
             default:
-              await ctx.reply('Incorrect code or too many attempts. Please try again later.');
+              await ctx.reply('Incorrect code. Please try again later.');
               break;
           }
         }
