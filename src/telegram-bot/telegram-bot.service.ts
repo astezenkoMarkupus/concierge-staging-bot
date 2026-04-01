@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Telegraf, Context } from 'telegraf';
 import fetch from 'node-fetch';
+import { Request, Response } from 'express';
 
 type UserStatusResponse = {
   status: string,
@@ -16,6 +17,7 @@ type VerifyCodeResponse = {
 @Injectable()
 export class TelegramBotService {
   private bot: Telegraf;
+  private handlersRegistered = false;
 
   constructor() {
     if (!process.env.TELEGRAM_BOT_TOKEN) {
@@ -25,7 +27,11 @@ export class TelegramBotService {
     this.bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN || '');
   }
 
-  async start() {
+  private registerHandlers() {
+    if (this.handlersRegistered) {
+      return;
+    }
+
     this.bot.catch((err) => {
       console.error('Telegram bot runtime error:', err);
     });
@@ -150,10 +156,31 @@ export class TelegramBotService {
       await ctx.reply('Please enter a code (8 symbols, uppercase letters and digits are allowed).');
     });
 
+    this.handlersRegistered = true;
+  }
+
+  async start() {
+    this.registerHandlers();
+
+    const webhookBaseUrl = process.env.TELEGRAM_WEBHOOK_BASE_URL?.trim();
+
+    if (webhookBaseUrl) {
+      const webhookUrl = `${webhookBaseUrl.replace(/\/$/, '')}/telegram/webhook`;
+
+      await this.bot.telegram.setWebhook(webhookUrl);
+      console.log(`Telegram bot webhook set: ${webhookUrl}`);
+      return;
+    }
+
     // Ensure polling mode is not blocked by a previously configured webhook.
     await this.bot.telegram.deleteWebhook({ drop_pending_updates: false });
     await this.bot.launch();
     console.log('Telegram bot polling started');
+  }
+
+  handleWebhook(req: Request, res: Response) {
+    this.registerHandlers();
+    return this.bot.webhookCallback('/telegram/webhook')(req, res);
   }
 }
 
