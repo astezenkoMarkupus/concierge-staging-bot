@@ -26,6 +26,10 @@ export class TelegramBotService {
   }
 
   async start() {
+    this.bot.catch((err) => {
+      console.error('Telegram bot runtime error:', err);
+    });
+
     // Basic /start command
     this.bot.start(async (ctx) => {
       // Get user's telegramId
@@ -146,7 +150,10 @@ export class TelegramBotService {
       await ctx.reply('Please enter a code (8 symbols, uppercase letters and digits are allowed).');
     });
 
+    // Ensure polling mode is not blocked by a previously configured webhook.
+    await this.bot.telegram.deleteWebhook({ drop_pending_updates: false });
     await this.bot.launch();
+    console.log('Telegram bot polling started');
   }
 }
 
