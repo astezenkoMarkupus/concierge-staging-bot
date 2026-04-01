@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { Telegraf, Context } from 'telegraf';
 import fetch from 'node-fetch';
 
@@ -14,14 +14,18 @@ type VerifyCodeResponse = {
 };
 
 @Injectable()
-export class TelegramBotService implements OnModuleInit {
+export class TelegramBotService {
   private bot: Telegraf;
 
   constructor() {
+    if (!process.env.TELEGRAM_BOT_TOKEN) {
+      throw new Error('TELEGRAM_BOT_TOKEN is missing');
+    }
+
     this.bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN || '');
   }
 
-  async onModuleInit() {
+  async start() {
     // Basic /start command
     this.bot.start(async (ctx) => {
       // Get user's telegramId
